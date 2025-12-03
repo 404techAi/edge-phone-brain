@@ -3,3 +3,4 @@ uvicorn
 twilio
 openai
 python-dotenv
+python-multipart
