@@ -32,34 +32,69 @@ def _get_speech(form: dict) -> str:
     return str(speech).strip()
 
 
-@app.post("/twilio/voice", response_class=PlainTextResponse)
-async def twilio_voice(request: Request):
+@app.post("/twilio/voice/service", response_class=PlainTextResponse)
+async def twilio_service(request: Request):
     """
-    First entry point when the call comes in.
-    Greets the caller and asks what they need.
+    Handles what the caller said they need (haircut, lining, etc.).
+    Then asks for their name, using OpenAI to sound natural.
     """
+    form = await request.form()
+    speech = _get_speech(form)
+
     resp = VoiceResponse()
 
+    # Use OpenAI to respond naturally to whatever they said
+    if speech:
+        try:
+            ai_response = openai_client.responses.create(
+                model="gpt-5.1-mini",
+                input=[
+                    {"role": "system", "content": EDGE_SYSTEM_PROMPT},
+                    {
+                        "role": "user",
+                        "content": (
+                            f'The caller just said: "{speech}". '
+                            "Acknowledge what they want in a natural way in 1–2 sentences, "
+                            "then smoothly ask for their first name."
+                        )
+                    }
+                ]
+            )
+            edge_text = ai_response.output[0].content[0].text.strip()
+        except Exception:
+            # Fallback if OpenAI has any issue
+            edge_text = f"Got you. I can help with that. What’s your first name?"
+
+        resp.say(
+            edge_text,
+            voice="Polly.Matthew"
+        )
+    else:
+        resp.say(
+            "Got you. I can help with that. What’s your first name?",
+            voice="Polly.Matthew"
+        )
+
+    # Then Gather their name
     gather = Gather(
         input="speech",
-        action="/twilio/voice/service",
+        action="/twilio/voice/name",
         method="POST",
         timeout=5
     )
     gather.say(
-        "Grooming Company, this is Edge, the shop's digital assistant. "
-        "What can I help you with today?",
-        voice="Polly.Matthew"  # Twilio will fall back if this voice isn't available
+        "Please tell me your first name.",
+        voice="Polly.Matthew"
     )
     resp.append(gather)
 
-    # If they say nothing, reprompt once and end.
     resp.say(
         "I'm sorry, I didn't catch that. Please call back when you're ready.",
         voice="Polly.Matthew"
     )
 
     return str(resp)
+
 
 
 @app.post("/twilio/voice/service", response_class=PlainTextResponse)
@@ -177,3 +212,4 @@ async def twilio_time(request: Request):
     resp.hangup()
 
     return str(resp)
+
