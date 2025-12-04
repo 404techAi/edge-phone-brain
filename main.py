@@ -82,7 +82,7 @@ Instruction: {instruction}
 """
 
     response = openai_client.responses.create(
-        model="gpt-5.1-mini",
+        model="gpt-4.1-mini",
         input=[
             {"role": "system", "content": EDGE_SYSTEM_PROMPT},
             {"role": "user", "content": user_content}
@@ -155,3 +155,4 @@ async def twilio_voice(
     vr.redirect("/twilio/voice")
 
     return str(vr)
+
